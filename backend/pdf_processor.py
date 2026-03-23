@@ -133,4 +133,8 @@ def process_pdf_file(pdf_path):
                 "sums": page_sums
             })
             
+            # Limpeza obrigatória de memória para servidores pequenos (Free Tier)
+            if hasattr(page, 'flush_cache'):
+                page.flush_cache()
+            
     return results
