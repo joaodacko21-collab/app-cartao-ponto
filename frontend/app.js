@@ -64,7 +64,18 @@ function uploadFiles(pdfFiles) {
     let allPromises = pdfFiles.map(file => {
         const formData = new FormData();
         formData.append('file', file);
-        return fetch(url, { method: 'POST', body: formData }).then(r => r.json());
+        return fetch(url, { method: 'POST', body: formData })
+        .then(async r => {
+            if (!r.ok) {
+                let errText = await r.text();
+                throw new Error(`Servidor retornou erro ${r.status}: ${errText.substring(0, 100)}...`);
+            }
+            try {
+                return await r.json();
+            } catch (err) {
+                throw new Error(`Falha ao ler JSON do servidor: ${err.message}`);
+            }
+        });
     });
     
     Promise.all(allPromises)
@@ -91,7 +102,7 @@ function uploadFiles(pdfFiles) {
     })
     .catch((e) => {
         document.getElementById('loading').classList.add('hidden');
-        alert("❌ Falha de conexão. O servidor FastAPI está ligado?");
+        alert("❌ Ocorreu um erro no acesso à Nuvem: \\n" + e.message + "\\n\\nIsso geralmente significa que o servidor gratuito do Render desligou por falta de memória RAM ao tentar ler um PDF muito grande, ou demorou muito e deu Timeout.");
         resetApp();
     });
 }
