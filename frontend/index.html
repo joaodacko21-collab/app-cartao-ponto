@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartão Ponto | App</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Background Animado -->
+    <div class="background-blobs">
+        <div class="blob orange"></div>
+        <div class="blob purple"></div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <h1>Apuração de Cartões Ponto</h1>
+            <p>Faça o upload do PDF e veja a soma exata de cada funcionário.</p>
+        </header>
+
+        <div class="upload-section" id="drop-area">
+            <input type="file" id="fileElem" accept="application/pdf" multiple style="display:none" onchange="handleFiles(this.files)">
+            <label class="button-upload" for="fileElem">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Selecionar PDF
+            </label>
+            <p>Ou arraste o arquivo PDF aqui</p>
+        </div>
+
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Processando o arquivo, por favor aguarde...</p>
+        </div>
+
+        <div id="results-section" class="hidden glass-panel">
+            <h2>Resultados por Funcionário</h2>
+            <div class="table-responsive">
+                <table id="results-table">
+                    <thead>
+                        <tr id="table-head-row">
+                            <!-- Preenchido pelo Javascript -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Preenchido pelo Javascript -->
+                    </tbody>
+                </table>
+            </div>
+            <button class="button-primary" onclick="exportToCSV()" style="margin-right: 15px; border-color: #28a745; color: #28a745; margin-bottom: 5px;">📥 Exportar para Excel (CSV)</button>
+            <button class="button-primary" onclick="resetApp()">Processar Novos Arquivos</button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
