@@ -1,23 +1,27 @@
 import pdfplumber
 import re
 
+# Pré-compilando regex para otimizar velocidade em laços de repetição
+RE_TIME_FORMAT = re.compile(r'^-?\d+:\d+$')
+RE_NAME_FORMAT = re.compile(r'^\d+\s*')
+
 def parse_time(tm_str):
     if not tm_str or not isinstance(tm_str, str):
         return 0
     
-    is_negative = False
     clean_str = tm_str.strip()
-    if clean_str.startswith('-'):
-        is_negative = True
-        clean_str = clean_str[1:]
+    # Verificação rápida sem regex (otimização)
+    if not clean_str or ':' not in clean_str:
+        return 0
         
-    match = re.search(r'(\d+):(\d+)', clean_str)
-    if match:
-        hours = int(match.group(1))
-        mins = int(match.group(2))
-        total = hours * 60 + mins
-        return -total if is_negative else total
-    return 0
+    try:
+        parts = clean_str.split(':')
+        sign = -1 if parts[0].startswith('-') else 1
+        hours = int(parts[0].replace('-', ''))
+        mins = int(parts[1])
+        return sign * (hours * 60 + mins)
+    except:
+        return 0
 
 def format_minutes(total_mins):
     is_negative = total_mins < 0
@@ -44,7 +48,7 @@ def process_pdf_file(pdf_path):
                     parts = line.split(':', 1)
                     if len(parts) > 1:
                         raw = parts[1].strip()
-                        name_str = re.sub(r'^\d+\s*', '', raw).strip()
+                        name_str = RE_NAME_FORMAT.sub('', raw).strip()
                         if name_str: 
                             employee_name = name_str
                             break
@@ -66,7 +70,7 @@ def process_pdf_file(pdf_path):
                                     parts = cell.split(':', 1)
                                     if len(parts) > 1:
                                         raw = parts[1].strip()
-                                        name_str = re.sub(r'^\d+\s*', '', raw).strip()
+                                        name_str = RE_NAME_FORMAT.sub('', raw).strip()
                                         if name_str:
                                             employee_name = name_str
                                             found = True
@@ -74,7 +78,7 @@ def process_pdf_file(pdf_path):
                                 elif 'empregado ' in cell_l:
                                     # Fallback without colon
                                     cl = cell_l.replace("empregado", "").strip()
-                                    name_str = re.sub(r'^\d+\s*', '', cl).strip().upper()
+                                    name_str = RE_NAME_FORMAT.sub('', cl).strip().upper()
                                     if name_str:
                                         employee_name = name_str
                                         found = True
@@ -107,9 +111,17 @@ def process_pdf_file(pdf_path):
                             rows = rows[:-1]
                             
                     col_minutes_sum = {j: 0 for j in range(len(clean_headers))}
+                    col_minutes_sum_01_25 = {j: 0 for j in range(len(clean_headers))}
+                    col_minutes_sum_26_31 = {j: 0 for j in range(len(clean_headers))}
                     col_has_time = {j: False for j in range(len(clean_headers))}
                     
+                    current_day = None
                     for row in rows:
+                        # Extrair o dia da primeira coluna se houver
+                        if row and row[0] and isinstance(row[0], str):
+                            match_date = re.search(r'(\d{2})/\d{2}', row[0])
+                            if match_date:
+                                current_day = int(match_date.group(1))
                         for j, cell in enumerate(row):
                             if j >= len(clean_headers):
                                 continue
@@ -119,18 +131,30 @@ def process_pdf_file(pdf_path):
                             if cell and isinstance(cell, str):
                                 cell_clean = cell.strip()
                                 # Testa formato de hora na célula
-                                if re.match(r'^-?\d+:\d+$', cell_clean):
+                                if RE_TIME_FORMAT.match(cell_clean):
                                     col_has_time[j] = True
-                                    col_minutes_sum[j] += parse_time(cell_clean)
+                                    parsed_val = parse_time(cell_clean)
+                                    col_minutes_sum[j] += parsed_val
+                                    
+                                    if current_day:
+                                        if current_day >= 26:
+                                            col_minutes_sum_26_31[j] += parsed_val
+                                        elif current_day <= 25:
+                                            col_minutes_sum_01_25[j] += parsed_val
+                    
+                    page_sums_01_25 = {}
+                    page_sums_26_31 = {}
                     
                     for j in range(len(clean_headers)):
                         if col_has_time[j] and 'falta' not in clean_headers[j].lower():
-                            page_sums[clean_headers[j]] = format_minutes(col_minutes_sum[j])
+                            page_sums_01_25[clean_headers[j]] = format_minutes(col_minutes_sum_01_25[j])
+                            page_sums_26_31[clean_headers[j]] = format_minutes(col_minutes_sum_26_31[j])
                             
             results.append({
                 "page": i + 1,
                 "name": employee_name,
-                "sums": page_sums
+                "sums_period_01_25": page_sums_01_25,
+                "sums_period_26_31": page_sums_26_31
             })
             
             # Limpeza obrigatória de memória para servidores pequenos (Free Tier)

@@ -122,8 +122,11 @@ function renderResults(results) {
     // Capture all columns across all employees
     const columnSet = new Set();
     results.forEach(emp => {
-        if(emp.sums) {
-            Object.keys(emp.sums).forEach(k => columnSet.add(k));
+        if(emp.sums_period_01_25) {
+            Object.keys(emp.sums_period_01_25).forEach(k => columnSet.add(k));
+        }
+        if(emp.sums_period_26_31) {
+            Object.keys(emp.sums_period_26_31).forEach(k => columnSet.add(k));
         }
     });
 
@@ -132,70 +135,26 @@ function renderResults(results) {
     // Build the Header
     thead.innerHTML = `<th>Funcionário</th>`;
     columns.forEach(col => {
-        thead.innerHTML += `<th>${col} (Soma)</th>`;
+        thead.innerHTML += `<th style="background: rgba(88, 166, 255, 0.05);">${col} (1 a 25)</th>`;
+        thead.innerHTML += `<th style="background: rgba(255, 166, 88, 0.05);">${col} (26 a 31)</th>`;
     });
-
-    function parseTimeStr(timeStr) {
-        if(!timeStr || timeStr === '-') return 0;
-        let isNeg = false;
-        let clean = timeStr.trim();
-        if(clean.startsWith('-')) {
-            isNeg = true;
-            clean = clean.substring(1);
-        }
-        const parts = clean.split(':');
-        if(parts.length === 2) {
-            const m = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-            return isNeg ? -m : m;
-        }
-        return 0;
-    }
-
-    function formatTimeMins(mins) {
-        const isNeg = mins < 0;
-        const absMins = Math.abs(mins);
-        const h = Math.floor(absMins / 60);
-        const m = absMins % 60;
-        const sign = isNeg ? '-' : '';
-        return `${sign}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-    }
-    
-    // Adiciona uma coluna de "Soma Total" no cabeçalho
-    thead.innerHTML += `<th style="color: #58a6ff; font-weight: 800; border-left: 1px solid var(--glass-border);">TOTAL DO FUNCIONÁRIO</th>`;
 
     // Build Table Body
     results.forEach(emp => {
-        let alertStyle = '';
         let row = `<tr>
             <td>
                 <strong style="font-size: 1.1rem; color: #fff;">${emp.name}</strong><br>
                 <small style="color:var(--text-secondary)">Página ${emp.page}</small>
             </td>`;
         
-        let employeeTotalMinutes = 0;
-        let extrasMinutes = 0;
-
         columns.forEach(col => {
-            const val = (emp.sums && emp.sums[col]) ? emp.sums[col] : '-';
-            if (val !== '-') {
-                employeeTotalMinutes += parseTimeStr(val);
-                // Detecta horas extras na coluna
-                if (col.toLowerCase().includes('extra') || col.toLowerCase().includes('e100')) {
-                    extrasMinutes += parseTimeStr(val);
-                }
-            }
-            row += `<td><span style="color:var(--text-primary); font-weight:500;">${val}</span></td>`;
+            const val_01 = (emp.sums_period_01_25 && emp.sums_period_01_25[col]) ? emp.sums_period_01_25[col] : '-';
+            const val_26 = (emp.sums_period_26_31 && emp.sums_period_26_31[col]) ? emp.sums_period_26_31[col] : '-';
+            
+            row += `<td style="border-left: 1px solid var(--glass-border);"><span style="color:var(--text-primary); font-weight:500;">${val_01}</span></td>`;
+            row += `<td><span style="color:var(--text-primary); font-weight:500;">${val_26}</span></td>`;
         });
         
-        // ALERTA DE HORAS EXTRAS (> 20h = 1200 minutos ou > 10h = 600m. Configuramos 10H como alerta proativo)
-        if (extrasMinutes > 600) { 
-            alertStyle = 'background: rgba(255, 99, 71, 0.1); border-left: 3px solid #ff6347;';
-        }
-
-        const totalStr = formatTimeMins(employeeTotalMinutes);
-        row += `<td style="background: rgba(88, 166, 255, 0.1); border-left: 1px solid var(--glass-border);"><span style="color:var(--accent); font-weight:800; font-size: 1.2rem;">${totalStr}</span></td>`;
-
-        row = row.replace('<tr>', `<tr style="${alertStyle}">`);
         row += `</tr>`;
         tbody.innerHTML += row;
     });
