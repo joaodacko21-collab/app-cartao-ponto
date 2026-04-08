@@ -119,25 +119,48 @@ function renderResults(results) {
         return;
     }
 
-    // Capture all columns across all employees
+    // Combine all keys
     const columnSet = new Set();
     results.forEach(emp => {
-        if(emp.sums_period_01_25) {
-            Object.keys(emp.sums_period_01_25).forEach(k => columnSet.add(k));
-        }
-        if(emp.sums_period_26_31) {
-            Object.keys(emp.sums_period_26_31).forEach(k => columnSet.add(k));
-        }
+        if(emp.sums_period_01_25) Object.keys(emp.sums_period_01_25).forEach(k => columnSet.add(k));
+        if(emp.sums_period_26_31) Object.keys(emp.sums_period_26_31).forEach(k => columnSet.add(k));
     });
 
     const columns = Array.from(columnSet);
 
+    // Helpers
+    function parseTimeStr(timeStr) {
+        if(!timeStr || timeStr === '-') return 0;
+        let isNeg = false;
+        let clean = timeStr.trim();
+        if(clean.startsWith('-')) {
+            isNeg = true;
+            clean = clean.substring(1);
+        }
+        const parts = clean.split(':');
+        if(parts.length === 2) {
+            const m = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            return isNeg ? -m : m;
+        }
+        return 0;
+    }
+
+    function formatTimeMins(mins) {
+        const isNeg = mins < 0;
+        const absMins = Math.abs(mins);
+        const h = Math.floor(absMins / 60);
+        const m = absMins % 60;
+        const sign = isNeg ? '-' : '';
+        return `${sign}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
     // Build the Header
     thead.innerHTML = `<th>Funcionário</th>`;
     columns.forEach(col => {
-        thead.innerHTML += `<th style="background: rgba(88, 166, 255, 0.05);">${col} (1 a 25)</th>`;
-        thead.innerHTML += `<th style="background: rgba(255, 166, 88, 0.05);">${col} (26 a 31)</th>`;
+        thead.innerHTML += `<th>${col}</th>`;
     });
+    thead.innerHTML += `<th style="background: rgba(88, 166, 255, 0.05); color: #58a6ff;">TOTAL (1 a 25)</th>`;
+    thead.innerHTML += `<th style="background: rgba(255, 166, 88, 0.05); color: #ffa658;">TOTAL (26 a 31)</th>`;
 
     // Build Table Body
     results.forEach(emp => {
@@ -147,14 +170,42 @@ function renderResults(results) {
                 <small style="color:var(--text-secondary)">Página ${emp.page}</small>
             </td>`;
         
+        let total_01_25_mins = 0;
+        let total_26_31_mins = 0;
+        let alertStyle = '';
+        let extrasTotal = 0;
+
         columns.forEach(col => {
-            const val_01 = (emp.sums_period_01_25 && emp.sums_period_01_25[col]) ? emp.sums_period_01_25[col] : '-';
-            const val_26 = (emp.sums_period_26_31 && emp.sums_period_26_31[col]) ? emp.sums_period_26_31[col] : '-';
+            const val_01 = (emp.sums_period_01_25 && emp.sums_period_01_25[col]) ? emp.sums_period_01_25[col] : '00:00';
+            const val_26 = (emp.sums_period_26_31 && emp.sums_period_26_31[col]) ? emp.sums_period_26_31[col] : '00:00';
             
-            row += `<td style="border-left: 1px solid var(--glass-border);"><span style="color:var(--text-primary); font-weight:500;">${val_01}</span></td>`;
-            row += `<td><span style="color:var(--text-primary); font-weight:500;">${val_26}</span></td>`;
+            const mins_01 = parseTimeStr(val_01);
+            const mins_26 = parseTimeStr(val_26);
+            
+            total_01_25_mins += mins_01;
+            total_26_31_mins += mins_26;
+            
+            if (col.toLowerCase().includes('extra') || col.toLowerCase().includes('e100')) {
+                extrasTotal += (mins_01 + mins_26);
+            }
+
+            const combined_mins = mins_01 + mins_26;
+            const final_val = combined_mins === 0 ? '-' : formatTimeMins(combined_mins);
+
+            row += `<td><span style="color:var(--text-primary); font-weight:500;">${final_val}</span></td>`;
         });
         
+        if (extrasTotal > 600) { 
+            alertStyle = 'background: rgba(255, 99, 71, 0.1); border-left: 3px solid #ff6347;';
+        }
+
+        const totalStr_01_25 = formatTimeMins(total_01_25_mins);
+        const totalStr_26_31 = formatTimeMins(total_26_31_mins);
+
+        row += `<td style="border-left: 1px solid var(--glass-border); font-weight: 800;"><span style="color:var(--accent);">${totalStr_01_25}</span></td>`;
+        row += `<td><span style="color:#ffa658; font-weight: 800;">${totalStr_26_31}</span></td>`;
+        
+        row = row.replace('<tr>', `<tr style="${alertStyle}">`);
         row += `</tr>`;
         tbody.innerHTML += row;
     });
